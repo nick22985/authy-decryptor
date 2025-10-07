@@ -9,15 +9,20 @@
 	"scripts": {
 		"build": "tsc",
 		"start": "node dist/bin/cli.js",
-		"dev": "tsx watch bin/cli.ts -i ./encyrpted.csv -o decrypted.json -u tokens.plain"
+		"dev": "tsx watch bin/cli.ts -i ./encyrpted.csv -o decrypted.json -u tokens.plain",
+		"test": "jest"
 	},
 	"dependencies": {
+		"@types/jest": "^30.0.0",
 		"commander": "^11.0.0",
-		"csv-parse": "^6.1.0"
+		"csv-parse": "^6.1.0",
+		"jest": "^30.2.0",
+		"ts-jest": "^29.4.4"
 	},
 	"devDependencies": {
 		"@types/node": "^20.10.5",
+		"dotenv": "^17.2.3",
 		"tsx": "^4.20.6",
-		"typescript": "^5.3.2"
+		"typescript": "^5.9.3"
 	}
 }

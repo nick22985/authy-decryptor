@@ -2,33 +2,29 @@
 import fs from 'fs';
 import crypto from 'crypto';
 import { parse } from 'csv-parse/sync';
-import readline from 'readline';
 
 interface TokenRecord {
 	name: string;
 	encrypted_seed: string;
 	salt: string;
-	iv: string;
+	iv?: string;
+	unique_iv?: string;
+	key_derivation_iterations?: number | string;
 }
-
-interface DecryptedToken {
+export interface DecryptedToken {
 	name: string;
 	decrypted_seed: string;
+	logo: string;
 }
 
-/**
- * Prompt hidden input for backup password
- */
+// --- Hidden password prompt ---
 export async function promptHidden(question: string): Promise<string> {
-	return new Promise<string>((resolve, reject) => {
+	return new Promise<string>((resolve) => {
 		const stdin = process.stdin;
 		process.stdout.write(question);
 		let password = '';
 
-		// Set raw mode and disable echo
-		if (!stdin.isRaw) {
-			stdin.setRawMode(true);
-		}
+		if (!stdin.isRaw) stdin.setRawMode(true);
 		stdin.resume();
 
 		function onData(char: Buffer) {
@@ -41,14 +37,12 @@ export async function promptHidden(question: string): Promise<string> {
 				stdin.removeListener('data', onData);
 				resolve(password);
 			} else if (ch === '\u0003') {
-				// Ctrl+C
 				stdin.setRawMode(false);
 				stdin.pause();
 				stdin.removeListener('data', onData);
 				process.stdout.write('\n');
 				process.exit();
 			} else if (ch === '\u007f') {
-				// Handle backspace
 				if (password.length > 0) {
 					password = password.slice(0, -1);
 					process.stdout.clearLine(0);
@@ -65,206 +59,169 @@ export async function promptHidden(question: string): Promise<string> {
 	});
 }
 
-/**
- * Check if decrypted secret looks like a valid OTP secret
- * (Base32 characters, length >= 8 is common)
- */
 function looksLikeValidOTPSecret(secret: string): boolean {
-	const base32regex = /^[A-Z2-7]+=*$/i;
-	return base32regex.test(secret.trim()) && secret.trim().length >= 8;
-}
-function decodeSalt(saltStr: string): Buffer {
-	try {
-		// Try base64 decoding first
-		return Buffer.from(saltStr, 'base64');
-	} catch {
-		// If base64 decoding fails, try hex
-		if (/^[0-9a-fA-F]+$/.test(saltStr)) {
-			return Buffer.from(saltStr, 'hex');
-		}
-		// Fall back to UTF-8 as last resort
-		return Buffer.from(saltStr, 'utf8');
-	}
+	return /^[A-Z2-7]+=*$/i.test(secret.trim()) && secret.trim().length >= 8;
 }
 
-/**
- * Decrypts a single encrypted seed
- */
+function isLikelyBase64(s: string): boolean {
+	return /^[A-Za-z0-9+/]+={0,2}$/.test(s) && s.length % 4 === 0;
+}
+
+// *** Modified: decodeSalt now only decodes as utf8, NOT base64 ***
+function decodeSalt(s: string): Buffer {
+	return Buffer.from(s, 'utf8');
+}
+
 export function decryptToken(
 	encryptedSeedB64: string,
 	saltStr: string,
-	ivHex: string,
+	ivHex: string | undefined,
 	passphrase: string,
+	iterations: number = 100000,
 ): string {
 	const encryptedSeed = Buffer.from(encryptedSeedB64, 'base64');
-	// Handle salt format: hex or utf-8
 	const salt = decodeSalt(saltStr);
-	// Derive key using PBKDF2
-	const key = crypto.pbkdf2Sync(passphrase, salt, 1000, 32, 'sha1');
-	// Parse IV or fallback to zero IV
-	const iv = ivHex && ivHex !== '' ? Buffer.from(ivHex, 'hex') : Buffer.alloc(16, 0);
+	const key = crypto.pbkdf2Sync(passphrase, salt, iterations, 32, 'sha1');
+	const iv = ivHex ? Buffer.from(ivHex, 'hex') : Buffer.alloc(16, 0);
+
 	const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-	// Let Node handle padding
-	const decrypted = Buffer.concat([decipher.update(encryptedSeed), decipher.final()]);
-	return decrypted.toString('utf8').trim();
+
+	try {
+		const decrypted = Buffer.concat([decipher.update(encryptedSeed), decipher.final()]);
+		return decrypted.toString('utf8').trim();
+	} catch (err) {
+		console.log('err', err);
+		throw err;
+	}
 }
 
-/**
- * Write output in minimal format
- */
-function writeMinimalOutput(
-	outputFile: string,
-	uriFile: string | undefined,
-	outputData: DecryptedToken[],
-): void {
+// NEW: simplified, get single password either from argument or prompt
+async function getPassphrase(password?: string): Promise<string | null> {
+	if (password && password.length >= 6) {
+		return password;
+	}
+	const pw = await promptHidden('Enter backup password: ');
+	if (pw.length < 6) {
+		console.error('Password must be at least 6 characters long.');
+		return null;
+	}
+	return pw;
+}
+
+// Try decrypt all tokens with one passphrase, fail immediately on any error
+async function tryDecryptAll(
+	records: TokenRecord[],
+	passphrase: string,
+	getIV: (r: TokenRecord) => string | undefined,
+	getIterations: (r: TokenRecord) => number,
+): Promise<DecryptedToken[]> {
+	const output: DecryptedToken[] = [];
+
+	for (const row of records) {
+		const iv = getIV(row);
+		const iterations = getIterations(row);
+		const decrypted = decryptToken(row.encrypted_seed, row.salt, iv, passphrase, iterations);
+		if (!looksLikeValidOTPSecret(decrypted)) {
+			throw new Error(`Invalid OTP secret format for "${row.name || '<unnamed>'}"`);
+		}
+		output.push({ name: row.name, decrypted_seed: decrypted, logo: (row as any).logo });
+	}
+
+	return output;
+}
+
+function writeOutput(outputFile: string, uriFile: string | undefined, tokens: DecryptedToken[]) {
 	fs.writeFileSync(
 		outputFile,
-		JSON.stringify(
-			{
-				message: 'success',
-				success: true,
-				tokens: outputData,
-			},
-			null,
-			2,
-		),
+		JSON.stringify({ message: 'success', success: true, tokens }, null, 2),
 	);
 	console.log(`✅ Decrypted tokens saved to ${outputFile}`);
 
 	if (uriFile) {
-		const uris = outputData
-			.filter((token) => !token.decrypted_seed.startsWith('Decryption failed'))
-			.map(
-				(token) => `otpauth://totp/${encodeURIComponent(token.name)}?secret=${token.decrypted_seed}`,
-			);
+		const uris = tokens
+			.filter((t) => !t.decrypted_seed.startsWith('Decryption failed'))
+			.map((t) => `otpauth://totp/${encodeURIComponent(t.name)}?secret=${t.decrypted_seed}`);
 		fs.writeFileSync(uriFile, uris.join('\n'), 'utf8');
 		console.log(`✅ otpauth:// URIs saved to ${uriFile}`);
 	}
 }
 
-/**
- * Process minimal CSV format: name, encrypted_seed, salt, iv
- * Tries passwords from file if provided, else prompts user
- */
+// --- CSV ---
 export async function processMinimalCSV(
 	inputFile: string,
 	outputFile: string,
 	uriFile?: string,
-	passwordFile?: string,
+	password?: string,
 ): Promise<void> {
-	console.log('processMinimalCSV called with:');
-	console.log(' inputFile:', inputFile);
-	console.log(' outputFile:', outputFile);
-	console.log(' uriFile:', uriFile);
-	console.log(' passwordFile:', passwordFile);
+	const csvText = fs
+		.readFileSync(inputFile, 'utf8')
+		.replace(/^"(.*)"$/, '$1')
+		.replace(/\\n/g, '\n');
 
-	let passphrases: string[] = [];
-
-	// Read password file if provided
-	if (passwordFile) {
-		try {
-			console.log('Reading password file:', passwordFile);
-			const pwFileContent = fs.readFileSync(passwordFile, 'utf8');
-			console.log('Password file content:\n', pwFileContent);
-			passphrases = pwFileContent
-				.split(/\r?\n/)
-				.map((line) => line.trim())
-				.filter((line) => line.length >= 6);
-			console.log('Passphrases extracted:', passphrases);
-			if (passphrases.length === 0) {
-				console.error('Password file is empty or no valid passwords found.');
-				return;
-			}
-		} catch (err) {
-			console.error('Error reading password file:', err);
-			return;
-		}
-	} else {
-		// No password file, prompt once
-		const pw = await promptHidden('Enter backup password: ');
-		console.log('User entered password of length:', pw.length);
-		if (pw.length < 6) {
-			console.error('Password must be at least 6 characters long.');
-			return;
-		}
-		passphrases = [pw];
-	}
-
-	let csvText = fs.readFileSync(inputFile, 'utf8');
-	console.log(`Input CSV content length: ${csvText.length}`);
-
-	// Manual unwrapping if file is a single-quoted string blob
-	if (csvText.startsWith('"') && csvText.endsWith('"')) {
-		console.log('Detected CSV wrapped in quotes, unwrapping...');
-		csvText = csvText.substring(1, csvText.length - 1);
-	}
-	// Replace literal newlines (escaped)
-	csvText = csvText.replace(/\\n/g, '\n');
-
-	// Parse CSV into typed records
-	const records: TokenRecord[] = parse(csvText, {
+	const records = parse(csvText, {
 		columns: true,
 		skip_empty_lines: true,
 		trim: true,
 	}) as TokenRecord[];
 
-	console.log('Parsed CSV records count:', records.length);
-
 	if (records.length === 0) {
-		console.log('No records found in CSV file.');
+		console.error('❌ No records found in CSV file.');
 		return;
 	}
 
-	// Try each passphrase until one decrypts all tokens correctly
-	let decryptedTokens: DecryptedToken[] = [];
-	let successfulPassword: string | null = null;
+	const passphrase = await getPassphrase(password);
+	if (!passphrase) return;
 
-	passwordLoop: for (const passphrase of passphrases) {
-		console.log('Trying passphrase:', passphrase);
-		let failed = false;
-		const outputData: DecryptedToken[] = [];
+	try {
+		const decrypted = await tryDecryptAll(
+			records,
+			passphrase,
+			(r) => r.iv,
+			() => 100000,
+		);
+		writeOutput(outputFile, uriFile, decrypted);
+	} catch (err) {
+		console.error('❌ Decryption failed:', err instanceof Error ? err.message : err);
+	}
+}
 
-		for (const row of records) {
-			let decrypted = '';
-			try {
-				decrypted = decryptToken(row.encrypted_seed, row.salt, row.iv, passphrase);
-				if (!looksLikeValidOTPSecret(decrypted)) {
-					throw new Error('Invalid OTP secret format');
-				}
-			} catch (err: unknown) {
-				if (err instanceof Error) {
-					decrypted = `Decryption failed: ${err.message}`;
-					console.log(
-						`Decryption failed on token: ${row.name} with passphrase: ${passphrase} - ${err.message}`,
-					);
-				} else {
-					decrypted = 'Decryption failed: Unknown error';
-					console.log(
-						`Decryption failed on token: ${row.name} with passphrase: ${passphrase} - Unknown error`,
-					);
-				}
-				failed = true;
-			}
-			outputData.push({
-				name: row.name,
-				decrypted_seed: decrypted,
-			});
-			if (failed) {
-				// Break inner loop to try next password
-				continue passwordLoop;
-			}
-		}
-
-		// All tokens decrypted successfully
-		decryptedTokens = outputData;
-		successfulPassword = passphrase;
-		break;
+// --- JSON ---
+export async function processEncryptedJSON(
+	inputFile: string,
+	outputFile: string,
+	uriFile?: string,
+	password?: string,
+): Promise<void> {
+	let jsonData;
+	try {
+		jsonData = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
+	} catch (err) {
+		console.error('❌ Failed to read or parse JSON file:', err);
+		return;
 	}
 
-	if (successfulPassword) {
-		console.log(`✅ Password found: ${successfulPassword}`);
-		writeMinimalOutput(outputFile, uriFile, decryptedTokens);
-	} else {
-		console.error('❌ No valid password found to decrypt all tokens.');
+	const records = jsonData.authenticator_tokens as TokenRecord[];
+	if (!Array.isArray(records) || records.length === 0) {
+		console.error('❌ No tokens found in JSON file.');
+		return;
+	}
+
+	const passphrase = await getPassphrase(password);
+	if (!passphrase) throw 'no passphrase';
+
+	try {
+		const decrypted = await tryDecryptAll(
+			records,
+			passphrase,
+			(r) => r.unique_iv,
+			(r) => {
+				const iter = Number(r.key_derivation_iterations);
+				return isFinite(iter) && iter > 0 ? iter : 100000;
+			},
+		);
+		console.log('decrypted', decrypted);
+		writeOutput(outputFile, uriFile, decrypted);
+	} catch (err) {
+		console.error('❌ Decryption failed:', err instanceof Error ? err.message : err);
 	}
 }
