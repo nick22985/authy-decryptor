@@ -8,7 +8,7 @@
 	"type": "module",
 	"main": "./dist/bundle/index.js",
 	"bin": {
-		"authy-decryptor": "build"
+		"authy-decryptor": "./dist/bundle/index.js"
 	},
 	"files": [
 		"dist"
