@@ -6,23 +6,48 @@
 	"bin": {
 		"authy-decryptor": "./dist/bin/cli.js"
 	},
-	"scripts": {
-		"build": "tsc",
-		"start": "node dist/bin/cli.js",
-		"dev": "tsx watch bin/cli.ts -i ./encyrpted.csv -o decrypted.json -u tokens.plain",
-		"test": "jest"
+	"release-it": {
+		"git": {
+			"requireCleanWorkingDir": true
+		},
+		"plugins": {
+			"@release-it/conventional-changelog": {
+				"preset": "conventionalcommits"
+			}
+		},
+		"github": {
+			"release": true,
+			"assets": [
+				"build/*"
+			]
+		}
 	},
+	"scripts": {
+		"build": "ncc build ./bin/cli.ts -o dist/bundle && node nexe-build.js",
+		"test": "jest",
+		"release": "npm run build && release-it",
+		"release:alpha": "npm run build && release-it prerelease --preRelease=alpha",
+		"release:beta": "npm run build && release-it prerelease --preRelease=beta",
+		"release:rc": "npm run build && release-it prerelease --preRelease=rc"
+	},
+	"keywords": [],
+	"author": "nick22985",
+	"license": "MIT",
 	"dependencies": {
-		"@types/jest": "^30.0.0",
 		"commander": "^11.0.0",
-		"csv-parse": "^6.1.0",
-		"jest": "^30.2.0",
-		"ts-jest": "^29.4.4"
+		"csv-parse": "^6.1.0"
 	},
 	"devDependencies": {
-		"@types/node": "^20.10.5",
+		"@release-it/conventional-changelog": "^10.0.1",
+		"@types/jest": "^29.5.12",
+		"@types/node": "^20.11.20",
+		"@vercel/ncc": "^0.38.4",
 		"dotenv": "^17.2.3",
-		"tsx": "^4.20.6",
-		"typescript": "^5.9.3"
+		"jest": "^29.7.0",
+		"nexe": "^5.0.0-beta.4",
+		"release-it": "^19.0.5",
+		"ts-jest": "^29.1.2",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.3.3"
 	}
 }

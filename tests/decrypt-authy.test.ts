@@ -33,7 +33,7 @@ describe('authy decrypt integration (csv + json)', () => {
 		const out = path.join(tempDir, 'out-csv.json');
 
 		// pass the password string directly
-		await processMinimalCSV(CSV_PATH, out, undefined, TEST_PASSWORD);
+		await processMinimalCSV(CSV_PATH, out, 'authy', TEST_PASSWORD);
 
 		expect(fs.existsSync(out)).toBe(true);
 		const content = JSON.parse(fs.readFileSync(out, 'utf8'));
@@ -52,7 +52,7 @@ describe('authy decrypt integration (csv + json)', () => {
 		expect(fs.existsSync(JSON_PATH)).toBe(true);
 		const out = path.join(tempDir, 'out-csv.json');
 
-		await processEncryptedJSON(JSON_PATH, out, undefined, TEST_PASSWORD);
+		await processEncryptedJSON(JSON_PATH, out, 'authy', TEST_PASSWORD);
 
 		expect(fs.existsSync(JSON_PATH_OUT)).toBe(true);
 		const content = JSON.parse(fs.readFileSync(JSON_PATH_OUT, 'utf8'));

@@ -2,6 +2,7 @@
 import fs from 'fs';
 import crypto from 'crypto';
 import { parse } from 'csv-parse/sync';
+import { getSchemaFormatter } from './schemas';
 
 interface TokenRecord {
 	name: string;
@@ -17,7 +18,6 @@ export interface DecryptedToken {
 	logo: string;
 }
 
-// --- Hidden password prompt ---
 export async function promptHidden(question: string): Promise<string> {
 	return new Promise<string>((resolve) => {
 		const stdin = process.stdin;
@@ -63,11 +63,6 @@ function looksLikeValidOTPSecret(secret: string): boolean {
 	return /^[A-Z2-7]+=*$/i.test(secret.trim()) && secret.trim().length >= 8;
 }
 
-function isLikelyBase64(s: string): boolean {
-	return /^[A-Za-z0-9+/]+={0,2}$/.test(s) && s.length % 4 === 0;
-}
-
-// *** Modified: decodeSalt now only decodes as utf8, NOT base64 ***
 function decodeSalt(s: string): Buffer {
 	return Buffer.from(s, 'utf8');
 }
@@ -95,7 +90,6 @@ export function decryptToken(
 	}
 }
 
-// NEW: simplified, get single password either from argument or prompt
 async function getPassphrase(password?: string): Promise<string | null> {
 	if (password && password.length >= 6) {
 		return password;
@@ -108,7 +102,6 @@ async function getPassphrase(password?: string): Promise<string | null> {
 	return pw;
 }
 
-// Try decrypt all tokens with one passphrase, fail immediately on any error
 async function tryDecryptAll(
 	records: TokenRecord[],
 	passphrase: string,
@@ -130,27 +123,22 @@ async function tryDecryptAll(
 	return output;
 }
 
-function writeOutput(outputFile: string, uriFile: string | undefined, tokens: DecryptedToken[]) {
-	fs.writeFileSync(
-		outputFile,
-		JSON.stringify({ message: 'success', success: true, tokens }, null, 2),
-	);
-	console.log(`✅ Decrypted tokens saved to ${outputFile}`);
-
-	if (uriFile) {
-		const uris = tokens
-			.filter((t) => !t.decrypted_seed.startsWith('Decryption failed'))
-			.map((t) => `otpauth://totp/${encodeURIComponent(t.name)}?secret=${t.decrypted_seed}`);
-		fs.writeFileSync(uriFile, uris.join('\n'), 'utf8');
-		console.log(`✅ otpauth:// URIs saved to ${uriFile}`);
+function writeOutput(outputFile: string, tokens: DecryptedToken[], schema: string) {
+	const formatter = getSchemaFormatter(schema);
+	if (!formatter) {
+		console.error(`❌ Unsupported schema: ${schema}`);
+		return;
 	}
+	const outputContent = formatter.format(tokens);
+
+	fs.writeFileSync(outputFile, outputContent);
+	console.log(`✅ Decrypted tokens saved to ${outputFile} with ${schema} schema.`);
 }
 
-// --- CSV ---
 export async function processMinimalCSV(
 	inputFile: string,
 	outputFile: string,
-	uriFile?: string,
+	schema: string,
 	password?: string,
 ): Promise<void> {
 	const csvText = fs
@@ -179,17 +167,16 @@ export async function processMinimalCSV(
 			(r) => r.iv,
 			() => 100000,
 		);
-		writeOutput(outputFile, uriFile, decrypted);
+		writeOutput(outputFile, decrypted, schema);
 	} catch (err) {
 		console.error('❌ Decryption failed:', err instanceof Error ? err.message : err);
 	}
 }
 
-// --- JSON ---
 export async function processEncryptedJSON(
 	inputFile: string,
 	outputFile: string,
-	uriFile?: string,
+	schema: string,
 	password?: string,
 ): Promise<void> {
 	let jsonData;
@@ -220,7 +207,7 @@ export async function processEncryptedJSON(
 			},
 		);
 		console.log('decrypted', decrypted);
-		writeOutput(outputFile, uriFile, decrypted);
+		writeOutput(outputFile, decrypted, schema);
 	} catch (err) {
 		console.error('❌ Decryption failed:', err instanceof Error ? err.message : err);
 	}
