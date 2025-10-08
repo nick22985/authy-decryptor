@@ -1,6 +1,6 @@
 {
 	"name": "@nick22985/authy-decryptor",
-	"version": "1.0.0",
+	"version": "0.0.0",
 	"publishConfig": {
 		"access": "public"
 	},
@@ -8,7 +8,7 @@
 	"type": "module",
 	"main": "./dist/bundle/index.js",
 	"bin": {
-		"authy-decryptor": "./build"
+		"authy-decryptor": "build"
 	},
 	"files": [
 		"dist"
