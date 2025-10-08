@@ -6,7 +6,7 @@ export class EnteFormatter implements SchemaFormatter {
 		return tokens
 			.map((token) => {
 				const name = encodeURIComponent(token.name);
-				const logo = encodeURIComponent(token.logo);
+				const logo = token.logo ? encodeURIComponent(token.logo) : null;
 				return `otpauth://totp/${name}${logo ? `-${logo}` : ''}-authy?secret=${token.decrypted_seed}`;
 			})
 			.join('\n');
