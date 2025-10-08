@@ -30,7 +30,7 @@
 		}
 	},
 	"scripts": {
-		"build": "ncc build ./bin/cli.ts -o dist/bundle && node nexe-build.js",
+		"build": "rm -rf ./build && ncc build ./bin/cli.ts -o dist/bundle && node nexe-build.js",
 		"test": "jest",
 		"release": "npm run build && release-it",
 		"release:alpha": "npm run build && release-it prerelease --preRelease=alpha",
