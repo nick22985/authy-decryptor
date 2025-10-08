@@ -15,15 +15,11 @@ A command-line tool to decrypt Authy authenticator backup tokens from either an 
 
 ## Installation
 
-<!-- You can install the tool using npm: -->
-<!---->
-<!-- ```bash -->
-<!-- npm install -g authy-decryptor -->
-<!-- ``` -->
-<!---->
-<!-- Alternatively, you can download a pre-built executable for your operating system from the [releases page](https://github.com/nick22985/authy-decryptor/releases). -->
-
-You can build it yourself or use the pre-built binaries. It may be on npm in the future
+You can install the tool using npm:
+```bash
+npm install -g authy-decryptor
+```
+Alternatively, you can download a pre-built executable for your operating system from the [releases page](https://github.com/nick22985/authy-decryptor/releases).
 
 ## Usage
 
