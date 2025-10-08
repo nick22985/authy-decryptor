@@ -58,5 +58,16 @@
 		"ts-jest": "^29.4.4",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.9.3"
-	}
+	},
+	"directories": {
+		"test": "tests"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/nick22985/authy-decryptor.git"
+	},
+	"bugs": {
+		"url": "https://github.com/nick22985/authy-decryptor/issues"
+	},
+	"homepage": "https://github.com/nick22985/authy-decryptor#readme"
 }
