@@ -8,10 +8,10 @@ const program = new Command();
 
 program
 	.name('authy-decryptor')
-	.description('Decrypt Authy authenticator backup tokens (CSV)')
-	.requiredOption('-i, --input <file>', 'Input file (.csv)')
+	.description('Decrypt Authy authenticator backup tokens')
+	.requiredOption('-i, --input <file>', 'Input file (.csv or .json)')
 	.requiredOption('-o, --output <file>', 'Output JSON file')
-	.option('--schema <type>', 'Output schema format (authy, bitwarden, 1password)', 'authy')
+	.option('--schema <type>', 'Output schema format (aegis, ente, vaultwarden)', 'authy')
 	.option('-p, --password <password>', 'Optional password for decryption')
 	.parse();
 
@@ -29,10 +29,7 @@ async function main() {
 		try {
 			const json = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
 
-			if (
-				Array.isArray(json.decrypted_authenticator_tokens) &&
-				json.decrypted_authenticator_tokens[0]?.encrypted_seed
-			) {
+			if (Array.isArray(json.authenticator_tokens) && json.authenticator_tokens[0]?.encrypted_seed) {
 				await processEncryptedJSON(inputPath, outputPath, schema, password);
 			} else {
 				console.error('❌ Unsupported JSON structure: expecting encrypted tokens.');

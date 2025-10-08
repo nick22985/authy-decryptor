@@ -3,19 +3,29 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { parse } from 'csv-parse/sync';
 import { getSchemaFormatter } from './schemas';
+import { v4 as uuidv4 } from 'uuid';
 
 interface TokenRecord {
 	name: string;
 	encrypted_seed: string;
 	salt: string;
+	account_type?: string;
 	iv?: string;
 	unique_iv?: string;
 	key_derivation_iterations?: number | string;
+	issuer?: string | null;
+	logo?: string | null;
+	digits?: number;
+	unique_id?: string;
 }
 export interface DecryptedToken {
+	account_type: string;
 	name: string;
+	issuer: string | null;
 	decrypted_seed: string;
-	logo: string;
+	digits: number;
+	logo: string | null;
+	unique_id: string;
 }
 
 export async function promptHidden(question: string): Promise<string> {
@@ -117,7 +127,15 @@ async function tryDecryptAll(
 		if (!looksLikeValidOTPSecret(decrypted)) {
 			throw new Error(`Invalid OTP secret format for "${row.name || '<unnamed>'}"`);
 		}
-		output.push({ name: row.name, decrypted_seed: decrypted, logo: (row as any).logo });
+		output.push({
+			account_type: row.account_type ?? 'authenticator',
+			name: row.name,
+			issuer: row.issuer ?? null,
+			decrypted_seed: decrypted,
+			digits: row.digits ?? 6,
+			logo: row.logo ?? null,
+			unique_id: row.unique_id ?? uuidv4(),
+		});
 	}
 
 	return output;

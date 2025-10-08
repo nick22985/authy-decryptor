@@ -1,7 +1,8 @@
 import { DecryptedToken } from '../decrypt';
+import { AegisFormatter } from './aegis';
 import { AuthyFormatter } from './authy';
-import { BitwardenFormatter } from './bitwarden';
-import { OnePasswordFormatter } from './1password';
+import { EnteFormatter } from './ente';
+import { VaultwardenFormatter } from './vaultwarden';
 
 export interface SchemaFormatter {
 	format(tokens: DecryptedToken[]): string;
@@ -9,8 +10,9 @@ export interface SchemaFormatter {
 
 const schemaRegistry: Record<string, SchemaFormatter> = {
 	authy: new AuthyFormatter(),
-	bitwarden: new BitwardenFormatter(),
-	'1password': new OnePasswordFormatter(),
+	ente: new EnteFormatter(),
+	aegis: new AegisFormatter(),
+	vaultwarden: new VaultwardenFormatter(),
 };
 
 export function getSchemaFormatter(schemaName: string): SchemaFormatter | undefined {

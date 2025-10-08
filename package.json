@@ -3,9 +3,13 @@
 	"version": "1.0.0",
 	"description": "CLI tool to decrypt Authy encrypted authenticator backup tokens",
 	"type": "module",
+	"main": "./dist/bin/cli.js",
 	"bin": {
 		"authy-decryptor": "./dist/bin/cli.js"
 	},
+	"files": [
+		"dist"
+	],
 	"release-it": {
 		"git": {
 			"requireCleanWorkingDir": true
@@ -35,7 +39,8 @@
 	"license": "MIT",
 	"dependencies": {
 		"commander": "^11.0.0",
-		"csv-parse": "^6.1.0"
+		"csv-parse": "^6.1.0",
+		"uuid": "^13.0.0"
 	},
 	"devDependencies": {
 		"@release-it/conventional-changelog": "^10.0.1",
