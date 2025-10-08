@@ -1,9 +1,9 @@
 {
-	"name": "authy-decryptor",
+	"name": "@nick22985/authy-decryptor",
 	"version": "1.0.0",
 	"description": "CLI tool to decrypt Authy encrypted authenticator backup tokens",
 	"type": "module",
-	"main": "./dist/bin/cli.js",
+	"main": "./dist/bundle/index.js",
 	"bin": {
 		"authy-decryptor": "./dist/bin/cli.js"
 	},
