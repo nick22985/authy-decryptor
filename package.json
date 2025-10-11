@@ -55,7 +55,7 @@
 		"nexe": "^5.0.0-beta.4",
 		"release-it": "^19.0.5",
 		"string-width": "^8.1.0",
-		"ts-jest": "^29.4.4",
+		"ts-jest": "^29.4.5",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.9.3"
 	},
