@@ -41,7 +41,7 @@
 	"author": "nick22985",
 	"license": "MIT",
 	"dependencies": {
-		"commander": "^14.0.1",
+		"commander": "^14.0.2",
 		"csv-parse": "^6.1.0",
 		"uuid": "^13.0.0"
 	},
