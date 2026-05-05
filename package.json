@@ -43,7 +43,7 @@
 	"dependencies": {
 		"commander": "^14.0.1",
 		"csv-parse": "^6.1.0",
-		"uuid": "^13.0.0"
+		"uuid": "^13.0.2"
 	},
 	"devDependencies": {
 		"@release-it/conventional-changelog": "^10.0.1",
