@@ -15,8 +15,22 @@ A command-line tool to decrypt Authy authenticator backup tokens from either an 
 
 ## Installation
 
-You can install the tool using npm:
-Tou can download a pre-built executable for your operating system from the [releases page](https://github.com/nick22985/authy-decryptor/releases) or build it yourself
+The tool is a Rust binary, distributed three ways — pick whichever fits:
+
+**npm** (installs the matching prebuilt binary automatically, no build step):
+
+```bash
+npm install -g @nick22985/authy-decryptor
+```
+
+**Cargo** (from crates.io):
+
+```bash
+cargo install authy-decryptor
+```
+
+**Prebuilt binary**: download the executable for your OS/arch from the
+[releases page](https://github.com/nick22985/authy-decryptor/releases) and run it directly.
 
 ## Usage
 
@@ -53,9 +67,25 @@ To decrypt an encrypted JSON file using a password and export it to the Aegis fo
 authy-decryptor -i my-encrypted-backup.json -o decrypted-tokens.json --schema aegis
 ```
 
+### Desktop GUI
+
+A graphical version, `authy-decryptor-gui`, is available on the
+[releases page](https://github.com/nick22985/authy-decryptor/releases). Launch it
+with no arguments to open the window (pick a file, enter your password, choose a
+schema, decrypt, and save). The same binary also runs headless — pass `-i`/`-o`
+and it behaves exactly like the CLI.
+
 ## Building from Source
 
-If you want to build the project from source, you'll need to have Node.js and npm installed.
+You need a [Rust toolchain](https://rustup.rs/) (1.74+). The repo is a Cargo workspace:
+
+| Crate | Path | What it is |
+| --- | --- | --- |
+| `authy-decryptor-core` | `crates/core` | Library: decryption + output schemas |
+| `authy-decryptor` | `crates/cli` | The CLI binary |
+| `authy-decryptor-gui` | `crates/gui` | Desktop GUI (egui) — also runs headless with `-i/-o` |
+
+Build a specific binary with `cargo build --release -p <crate>`, or all with `cargo build --release`.
 
 1. **Clone the repository:**
 
@@ -64,28 +94,32 @@ If you want to build the project from source, you'll need to have Node.js and np
    cd authy-decryptor
    ```
 
-2. **Install dependencies:**
+2. **Build the CLI:**
 
    ```bash
-   npm install
+   cargo build --release -p authy-decryptor
    ```
 
-3. **Build the project:**
+   The binary lands at `target/release/authy-decryptor`.
 
-   ```bash
-   npm run build
-   ```
+### npm packaging
 
-   This will create a bundled version of the CLI in the `dist` directory and a standalone executable in the `build` directory.
+The npm package (`npm/`) is a thin launcher: it ships no code of its own and
+execs the platform-specific prebuilt binary, which is installed automatically as
+an [optional dependency](https://docs.npmjs.com/cli/configuring-npm/package-json#optionaldependencies)
+matching the user's `os`/`cpu`. Release automation (`.github/workflows/release.yml`)
+builds every target, packs each into an `@nick22985/authy-decryptor-<platform>`
+package, and publishes them alongside the main wrapper.
 
 ## Testing
 
-To run the tests, use the following command:
-This requires you to have a encrypted export of the GDPR data they send you or the MIT Proxy export refer to https://gist.github.com/gboudreau/94bb0c11a6209c82418d01a59d958c93 for ways of doing this
-
 ```bash
-npm test
+cargo test
 ```
+
+Integration decryption requires a real encrypted Authy export (GDPR data export
+or an mitmproxy capture) — see
+https://gist.github.com/gboudreau/94bb0c11a6209c82418d01a59d958c93 for how to obtain one.
 
 ## License
 

@@ -1,0 +1,218 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build ${{ matrix.key }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: linux-x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            cross: true
+          - key: linux-arm64
+            runner: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            cross: true
+          - key: darwin-x64
+            runner: macos-13
+            target: x86_64-apple-darwin
+            cross: false
+          - key: darwin-arm64
+            runner: macos-14
+            target: aarch64-apple-darwin
+            cross: false
+          - key: win32-x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            cross: false
+          - key: win32-arm64
+            runner: windows-latest
+            target: aarch64-pc-windows-msvc
+            cross: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build (cross)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }} -p authy-decryptor
+
+      - name: Build (native)
+        if: '!matrix.cross'
+        run: cargo build --release --target ${{ matrix.target }} -p authy-decryptor
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          mkdir -p staged
+          if [[ "${{ matrix.key }}" == win32-* ]]; then
+            cp "target/${{ matrix.target }}/release/authy-decryptor.exe" "staged/authy-decryptor.exe"
+          else
+            cp "target/${{ matrix.target }}/release/authy-decryptor" "staged/authy-decryptor"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.key }}
+          path: staged/*
+
+  build-gui:
+    name: build gui ${{ matrix.key }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: linux-x64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - key: darwin-x64
+            runner: macos-13
+            target: x86_64-apple-darwin
+          - key: darwin-arm64
+            runner: macos-14
+            target: aarch64-apple-darwin
+          - key: win32-x64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux GUI deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libxcb1-dev \
+            libx11-dev libxrandr-dev libxi-dev libgl1-mesa-dev libxcursor-dev
+
+      - name: Build GUI
+        run: cargo build --release --target ${{ matrix.target }} -p authy-decryptor-gui
+
+      - name: Stage GUI binary
+        shell: bash
+        run: |
+          mkdir -p staged
+          if [[ "${{ matrix.key }}" == win32-* ]]; then
+            cp "target/${{ matrix.target }}/release/authy-decryptor-gui.exe" "staged/authy-decryptor-gui.exe"
+          else
+            cp "target/${{ matrix.target }}/release/authy-decryptor-gui" "staged/authy-decryptor-gui"
+          fi
+
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gui-${{ matrix.key }}
+          path: staged/*
+
+  publish-npm:
+    name: publish npm packages
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Build & publish platform packages
+        working-directory: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -e
+          for key in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64 win32-arm64; do
+            if [[ "$key" == win32-* ]]; then
+              bin="../artifacts/bin-$key/authy-decryptor.exe"
+            else
+              bin="../artifacts/bin-$key/authy-decryptor"
+            fi
+            node scripts/build-platforms.mjs "$key" "$bin"
+            npm publish "platforms/$key" --access public
+          done
+
+      - name: Publish main wrapper package
+        working-directory: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+  publish-crates:
+    name: publish to crates.io
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish crates (core then cli)
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          cargo publish -p authy-decryptor-core
+          sleep 30
+          cargo publish -p authy-decryptor
+
+  github-release:
+    name: attach binaries to release
+    needs: [build, build-gui]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Rename per platform
+        run: |
+          mkdir -p release
+          for key in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64 win32-arm64; do
+            if [[ "$key" == win32-* ]]; then
+              cp "artifacts/bin-$key/authy-decryptor.exe" "release/authy-decryptor-$key.exe"
+            else
+              cp "artifacts/bin-$key/authy-decryptor" "release/authy-decryptor-$key"
+            fi
+          done
+          for key in linux-x64 darwin-x64 darwin-arm64 win32-x64; do
+            if [[ "$key" == win32-* ]]; then
+              cp "artifacts/gui-$key/authy-decryptor-gui.exe" "release/authy-decryptor-gui-$key.exe"
+            else
+              cp "artifacts/gui-$key/authy-decryptor-gui" "release/authy-decryptor-gui-$key"
+            fi
+          done
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true

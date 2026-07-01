@@ -1,0 +1,30 @@
+[package]
+name = "authy-decryptor-core"
+description = "Core library to decrypt Authy encrypted authenticator backup tokens"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["authy", "2fa", "totp", "otp", "decrypt"]
+categories = ["cryptography"]
+
+[lib]
+name = "authy_decryptor_core"
+path = "src/lib.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+csv = "1"
+base64 = "0.22"
+hex = "0.4"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+sha1 = "0.10"
+hmac = "0.12"
+aes = "0.8"
+cbc = "0.1"
+uuid = { version = "1", features = ["v4"] }
+rpassword = "7"
+data-encoding = "2"

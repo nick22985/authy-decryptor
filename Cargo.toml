@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/cli", "crates/gui"]
+
+[workspace.package]
+version = "0.4.0"
+edition = "2021"
+authors = ["nick22985"]
+license = "MIT"
+repository = "https://github.com/nick22985/authy-decryptor"
+homepage = "https://github.com/nick22985/authy-decryptor#readme"
+
+[workspace.dependencies]
+authy-decryptor-core = { path = "crates/core", version = "0.4.0" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+clap = { version = "4", features = ["derive"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+codegen-units = 1

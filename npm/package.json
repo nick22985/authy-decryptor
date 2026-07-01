@@ -1,0 +1,39 @@
+{
+	"name": "@nick22985/authy-decryptor",
+	"version": "0.4.0",
+	"description": "CLI tool to decrypt Authy encrypted authenticator backup tokens (Rust binary)",
+	"publishConfig": {
+		"access": "public"
+	},
+	"bin": {
+		"authy-decryptor": "bin/cli.js"
+	},
+	"files": [
+		"bin"
+	],
+	"keywords": [
+		"authy",
+		"2fa",
+		"totp",
+		"otp",
+		"decrypt"
+	],
+	"author": "nick22985",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/nick22985/authy-decryptor.git"
+	},
+	"bugs": {
+		"url": "https://github.com/nick22985/authy-decryptor/issues"
+	},
+	"homepage": "https://github.com/nick22985/authy-decryptor#readme",
+	"optionalDependencies": {
+		"@nick22985/authy-decryptor-linux-x64": "0.4.0",
+		"@nick22985/authy-decryptor-linux-arm64": "0.4.0",
+		"@nick22985/authy-decryptor-darwin-x64": "0.4.0",
+		"@nick22985/authy-decryptor-darwin-arm64": "0.4.0",
+		"@nick22985/authy-decryptor-win32-x64": "0.4.0",
+		"@nick22985/authy-decryptor-win32-arm64": "0.4.0"
+	}
+}

@@ -1,0 +1,20 @@
+[package]
+name = "authy-decryptor"
+description = "CLI tool to decrypt Authy encrypted authenticator backup tokens"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords = ["authy", "2fa", "totp", "otp", "decrypt"]
+categories = ["command-line-utilities", "cryptography"]
+readme = "README.md"
+
+[[bin]]
+name = "authy-decryptor"
+path = "src/main.rs"
+
+[dependencies]
+authy-decryptor-core.workspace = true
+clap.workspace = true

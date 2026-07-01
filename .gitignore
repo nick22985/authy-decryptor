@@ -1,8 +1,16 @@
 encyrpted.csv
-node_modules/*
 decrypted.json
 tokens.plain
-dist/*
-build/
 secrets/*
 .env
+
+# Rust
+/target
+
+# npm wrapper
+node_modules/
+npm/platforms/
+
+# Legacy (pre-Rust) build artifacts
+dist/*
+build/
